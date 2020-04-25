@@ -1,0 +1,7 @@
+notes-*
+.env
+
+# IntelliJ
+*.iml
+.idea
+versiondata-*
