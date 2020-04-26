@@ -25,8 +25,8 @@ function confirm_metadata() {
   echo "JNI Libs version: ${JNI_VERSION}"
   echo "Release Notes (Android):"
   cat "notes-Android-${1}.txt"
-  echo "Release Notes (iOS):"
-  cat "notes-iOS-${1}.txt"
+#  echo "Release Notes (iOS):"
+#  cat "notes-iOS-${1}.txt"
   echo "Release Notes (Base):"
   cat "notes-Base-${1}.txt"
   read -p "Do you wish to continue? " yn
@@ -47,6 +47,9 @@ function pull_latest_code() {
 
 function build_ffi_libs() {
   echo "Building FF libraries"
+  cd ${TARI_REPO}/base_layer/wallet_ffi/
+  sh ./mobile_build.sh
+  cd $SCRIPT_DIR
 }
 
 function tag() {
@@ -68,13 +71,13 @@ function update_android_version_info() {
   # update build.gradle
   sed -i -e "s|versionCode .*|versionCode ${ANDROID_CODE}|" -e "s|versionName \".*\"|versionName \"${ver_string}\"|" "${ANDROID_GRADLE}"
   # update change logs
-  sed -i -e "2rnotes-Android-${1}.txt" -e "2i## [${ver_string}] - ${DATE}" "${ANDROID_RELNOTES_FILE}"
+  sed -i -e "1rnotes-Android-${1}.txt" -e "1i## [${ver_string}] - ${DATE}" "${ANDROID_RELNOTES_FILE}"
   # Create and push a new commit
+  cd ${ANDROID_WALLET_REPO}
   git add "${ANDROID_STRINGS}" "${ANDROID_GRADLE}" "${ANDROID_RELNOTES_FILE}"
   git commit -m "Bump version to ${ver_string}"
   git push origin development
   # Tag the release
-  cd ${ANDROID_WALLET_REPO}
   git tag -a "${ver_string}" --file "${SCRIPT_DIR}/notes-Android-${1}.txt"
   git push origin "${ver_string}"
   cd ${SCRIPT_DIR}
@@ -86,15 +89,17 @@ function stage_libwallet() {
   cd ${SCRIPT_DIR}
 }
 
-function deploy_tari_webite() {
+function deploy_tari_website() {
   cd ${TARI_WEBSITE_REPO}
   echo "Deploying to tari.com"
-  #  ./deploy.sh production
+  ./deploy.sh production
   cd ${SCRIPT_DIR}
 }
 
 function deploy_android() {
   echo "Building and deploying Android app"
+  ./deploy_android.sh
+  cd ${SCRIPT_DIR}
 }
 
 function build_and_stage_ios_installer() {
@@ -125,22 +130,24 @@ metadata=versiondata-${1}.env
 source ${metadata}
 
 # Collect all the info we need from the user
-edit Android ${version}
-edit iOS ${version}
-edit Base ${version}
-confirm_metadata ${version}
 
-pull_latest_code ${TARI_REPO} development
-pull_latest_code ${ANDROID_WALLET_REPO} development
-pull_latest_code ${ANDROID_WALLET_REPO} development
-update_android_version_info ${version}
+#edit Android ${version}
+#-- edit iOS ${version}
+#edit Base ${version}
+#confirm_metadata ${version}
+
+#pull_latest_code ${TARI_REPO} development
+#pull_latest_code ${ANDROID_WALLET_REPO} development
+#pull_latest_code ${IOS_WALLET_REPO} development
+#update_android_version_info ${version}
 # FFi library build tag and stage
-build_ffi_libs
-tag ${TARI_REPO} libwallet-${JNI_VERSION}
-stage_libwallet
-deploy_tari_webite
-deploy_android
-build_and_stage_ios_installer
+#build_ffi_libs
+#tag ${TARI_REPO} libwallet-${JNI_VERSION} || true
+
+#stage_libwallet
+deploy_tari_website
+#deploy_android
+#build_and_stage_ios_installer
 build_and_stage_ubuntu
 build_and_stage_windows
 notify_people
