@@ -1,0 +1,15 @@
+{
+  "name": "update_downloads",
+  "version": "1.0.0",
+  "description": "Updates the metadata for the tari.com downloads page",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "yaml": "^1.9.2"
+  }
+}

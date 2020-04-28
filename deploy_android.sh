@@ -35,9 +35,9 @@ function check_env() {
     exit 1
   fi
 
-  AUTH_TOKEN=$(echo $PLAYSTORE_KEY | jq -r '.private_key')
-  AUTH_ISS=$(echo $PLAYSTORE_KEY | jq -r '.client_email')
-  AUTH_AUD=$(echo $PLAYSTORE_KEY | jq -r '.token_uri')
+  AUTH_TOKEN=$(jq -r '.private_key' $PLAYSTORE_KEY)
+  AUTH_ISS=$(jq -r '.client_email' $PLAYSTORE_KEY)
+  AUTH_AUD=$(jq -r '.token_uri' $PLAYSTORE_KEY)
 
   if [ -z "$AUTH_TOKEN" ] || [ -z "$AUTH_ISS" ] || [ -z "$AUTH_AUD" ]; then
     echo "PLAYSTORE_SERVICE_KEY not as expected. Exiting."
@@ -55,7 +55,7 @@ function get_app_info() {
   # Calculate app information
   AAPT=$(find $ANDROID_HOME -name "aapt" | sort -r | head -1)
   APKS_PATH="/tmp/workspace/aab/app.apks"
-  java -jar bundletool.jar build-apks --bundle=$AAB_PATH --output=$APKS_PATH --mode=universal \
+  bundletool build-apks --bundle=$AAB_PATH --output=$APKS_PATH --mode=universal \
     --ks=$KEYSTORE_PATH --ks-pass=pass:$KEYSTORE_PASS --ks-key-alias=$KEYSTORE_ALIAS --key-pass=pass:$KEYSTORE_KEY_PASS
   unzip $APKS_PATH -d /tmp/workspace/aab/unzipped
   APK_PATH="/tmp/workspace/aab/unzipped/universal.apk"
@@ -89,23 +89,6 @@ function build_app() {
   cd ${SCRIPT_DIR}
 }
 
-
-set -ea
-SCRIPT_DIR=$(pwd)
-# Main deployment script for new Tari releases
-DATE=$(date +%Y-%m-%d)
-source .env
-
-#check_env
-#get_app_info
-build_app
-
-
-
-# Get access token
-echo "Getting access token..."
-
-JWT_HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | openssl base64 -e)
 function jwt_claims() {
   cat <<EOF
 {
@@ -117,12 +100,17 @@ function jwt_claims() {
 }
 EOF
 }
-JWT_CLAIMS=$(echo -n "$(jwt_claims)" | openssl base64 -e)
-JWT_PART_1=$(echo -n "$JWT_HEADER.$JWT_CLAIMS" | tr -d '\n' | tr -d '=' | tr '/+' '_-')
-JWT_SIGNING=$(echo -n "$JWT_PART_1" | openssl dgst -binary -sha256 -sign <(printf '%s\n' "$AUTH_TOKEN") | openssl base64 -e)
-JWT_PART_2=$(echo -n "$JWT_SIGNING" | tr -d '\n' | tr -d '=' | tr '/+' '_-')
 
-function later() {
+function get_access_token() {
+  # Get access token
+  echo "Getting access token..."
+
+  JWT_HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | openssl base64 -e)
+  JWT_CLAIMS=$(echo -n "$(jwt_claims)" | openssl base64 -e)
+  JWT_PART_1=$(echo -n "$JWT_HEADER.$JWT_CLAIMS" | tr -d '\n' | tr -d '=' | tr '/+' '_-')
+  JWT_SIGNING=$(echo -n "$JWT_PART_1" | openssl dgst -binary -sha256 -sign <(printf '%s\n' "$AUTH_TOKEN") | openssl base64 -e)
+  JWT_PART_2=$(echo -n "$JWT_SIGNING" | tr -d '\n' | tr -d '=' | tr '/+' '_-')
+
   HTTP_RESPONSE_TOKEN=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" \
     --header "Content-type: application/x-www-form-urlencoded" \
     --request POST \
@@ -138,20 +126,23 @@ function later() {
     echo "Exiting"
     exit 1
   fi
+  echo $HTTP_BODY_TOKEN | jq
   ACCESS_TOKEN=$(echo $HTTP_BODY_TOKEN | jq -r '.access_token')
+}
 
-  # Create new edit
-  echo "Creating new edit..."
-
+post_data_create_edit() {
   EXPIRY=$(($(date +%s) + 120))
-  post_data_create_edit() {
-    cat <<EOF
+  cat <<EOF
 {
   "id": "circleci-$ANDROID_CODE",
   "expiryTimeSeconds": "$EXPIRY"
 }
 EOF
-  }
+}
+
+function create_edit() {
+  # Create new edit
+  echo "Creating new edit for ${PACKAGE_NAME}"
 
   HTTP_RESPONSE_CREATE_EDIT=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" \
     --header "Authorization: Bearer $ACCESS_TOKEN" \
@@ -170,7 +161,28 @@ EOF
     exit 1
   fi
 
+  #debug
+  echo $($HTTP_BODY_CREATE_EDIT | jq)
   EDIT_ID=$(echo $HTTP_BODY_CREATE_EDIT | jq -r '.id')
+
+}
+
+set -ea
+SCRIPT_DIR=$(pwd)
+# Main deployment script for new Tari releases
+DATE=$(date +%Y-%m-%d)
+source .env
+
+check_env
+#get_app_info
+#build_app
+get_access_token
+create_edit
+
+
+function later() {
+
+
 
   # Upload aab
   echo "Uploading aab..."
