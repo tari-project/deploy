@@ -27,8 +27,8 @@ function confirm_metadata() {
   cat "notes-Android-${1}.txt"
 #  echo "Release Notes (iOS):"
 #  cat "notes-iOS-${1}.txt"
-  echo "Release Notes (Base):"
-  cat "notes-Base-${1}.txt"
+#  echo "Release Notes (Base):"
+#  cat "notes-Base-${1}.txt"
   read -p "Do you wish to continue? " yn
   case $yn in
   [Yy]*) ;;
@@ -76,15 +76,16 @@ function update_android_version_info() {
   cd ${ANDROID_WALLET_REPO}
   git add "${ANDROID_STRINGS}" "${ANDROID_GRADLE}" "${ANDROID_RELNOTES_FILE}"
   git commit -m "Bump version to ${ver_string}"
-  git push origin development
+  #git push origin development
   # Tag the release
   git tag -a "${ver_string}" --file "${SCRIPT_DIR}/notes-Android-${1}.txt"
-  git push origin "${ver_string}"
+  #git push origin "${ver_string}"
   cd ${SCRIPT_DIR}
 }
 
 # Compute libwallet hashes and copy the bundles to the tari website staging area
 function stage_libwallet() {
+  echo "Hashing libwallet binaries"
   ./libwallet_hashes.sh ${JNI_VERSION}
   cd ${SCRIPT_DIR}
 }
@@ -102,6 +103,12 @@ function deploy_android() {
   cd ${SCRIPT_DIR}
 }
 
+function update_tari_metadata() {
+  cd update_downloads
+  npm install
+  npm start
+  cd ${SCRIPT_DIR}
+}
 function build_and_stage_ios_installer() {
   echo "iOS installer not implemented yet"
 }
@@ -145,9 +152,10 @@ source ${metadata}
 #tag ${TARI_REPO} libwallet-${JNI_VERSION} || true
 
 #stage_libwallet
-deploy_tari_website
 #deploy_android
 #build_and_stage_ios_installer
-build_and_stage_ubuntu
-build_and_stage_windows
-notify_people
+#build_and_stage_ubuntu
+#build_and_stage_windows
+update_tari_metadata
+#deploy_tari_website
+#notify_people

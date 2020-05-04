@@ -47,7 +47,7 @@ function find_most_recent(path, substr) {
             name: fileName,
             time: fs.statSync(path + '/' + fileName).mtime.getTime()
         };
-    }).sort((a, b) => a.time - b.time)
+    }).sort((a, b) => b.time - a.time)
         .map((v) => v.name);
     console.log(`${matches.length} version found. Selecting ${matches[0]}`);
     return matches[0]
